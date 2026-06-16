@@ -1,19 +1,7 @@
 # dashterm
 
 A lightweight terminal dashboard — displays clock, date, weather, countdowns, uptime, and user info every time you open a terminal.
-
-```
-╭──────────────────────────────────────────────────────────────────────╮
-│  Tuesday, June 16, 2026                              09:41:22  🕐    │
-├──────────────────────────────────────────────────────────────────────┤
-│  ☀️  São Paulo  +24°C  Sunny                                         │
-├──────────────────────────────────────────────────────────────────────┤
-│  ⏳  New Year          ░░░░░░░░░░██   199 days                       │
-│  ⏳  Project Launch    ░░░░░░░░████    91 days                       │
-├──────────────────────────────────────────────────────────────────────┤
-│  👤  alex@macbook-pro                          ⏱  up 3d 4h 22m      │
-╰──────────────────────────────────────────────────────────────────────╯
-```
+<img width="751" height="446" alt="dashterm-print" src="https://github.com/user-attachments/assets/7d71075a-331e-4820-9d3d-64dd945e3b6e" />
 
 ## Requirements
 
