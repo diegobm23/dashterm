@@ -6,8 +6,11 @@ Usage:
     dashterm --live     → live updating clock (standalone mode)
     dashterm --setup    → interactive configuration wizard
     dashterm --config   → print the config file path and contents
+    dashterm --version  → show version
     dashterm --help     → show usage
 """
+
+__version__ = "0.1.0"
 
 import os
 import sys
@@ -398,7 +401,10 @@ def render(cfg: dict):
 
     lines.append(box_bottom(width))
 
-    print("\n".join(lines))
+    output = "\n".join(lines)
+    if not cfg.get("use_color", True):
+        output = _strip_ansi(output)
+    print(output)
 
 # ─── Setup wizard ─────────────────────────────────────────────────────────────
 
@@ -517,6 +523,10 @@ def main():
 
     if "--help" in args or "-h" in args:
         print(__doc__)
+        return
+
+    if "--version" in args or "-v" in args:
+        print(f"dashterm {__version__}")
         return
 
     if "--setup" in args:
