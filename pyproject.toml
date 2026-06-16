@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dashterm"
+description = "A lightweight terminal dashboard for your shell startup."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Diego Moreira" }]
+dynamic = ["version"]
+dependencies = []   # pure standard library — nothing to install at runtime
+
+[project.scripts]
+dashterm = "dashterm.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "dashterm.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

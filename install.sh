@@ -9,20 +9,19 @@ INSTALL_DIR="$HOME/.local/bin"
 TARGET="$INSTALL_DIR/dashterm"
 
 echo ""
-echo "  ╭─────────────────────────────────╮"
-echo "  │       dashterm  installer       │"
-echo "  ╰─────────────────────────────────╯"
+echo "  ╭─────────────────────────────╮"
+echo "  │   dashterm  installer       │"
+echo "  ╰─────────────────────────────╯"
 echo ""
 
-# Create ~/.local/bin if needed
+# Build the single-file executable (pure stdlib zipapp — no pip needed)
+echo "  Building dashterm…"
+bash "$SCRIPT_DIR/build.sh"
+
+# Create ~/.local/bin if needed and install the built executable
 mkdir -p "$INSTALL_DIR"
-
-# Copy the script
-cp "$SCRIPT_DIR/dashterm.py" "$TARGET"
+cp "$SCRIPT_DIR/dist/dashterm" "$TARGET"
 chmod +x "$TARGET"
-
-# Ensure shebang is present (it is, but just in case)
-head -1 "$TARGET" | grep -q "python3" || sed -i '1s|^|#!/usr/bin/env python3\n|' "$TARGET"
 
 echo "  ✓ Installed to $TARGET"
 echo ""
@@ -69,7 +68,7 @@ echo ""
 read -r -p "  [Y/n]: " run_setup
 if [[ "$run_setup" != "n" && "$run_setup" != "N" ]]; then
     echo ""
-    python3 "$TARGET" --setup
+    "$TARGET" --setup
 else
     echo ""
     echo "  Done! Run:  dashterm --setup   to configure"
