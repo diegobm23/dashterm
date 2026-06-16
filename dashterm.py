@@ -38,6 +38,7 @@ DEFAULT_CONFIG = {
     "use_color": True,
     "show_weather": True,
     "weather_cache_minutes": 30,
+    "clock_style": "default",   # "default" | "large" | "ascii"
 }
 
 def load_config() -> dict:
@@ -150,6 +151,20 @@ def box_row_two(left: str, right: str, width: int, pad: int = 2) -> str:
     return (
         f"{C_BORDER}{V}{RESET}"
         f"{' ' * pad}{left}{' ' * gap}{right}{' ' * pad}"
+        f"{C_BORDER}{V}{RESET}"
+    )
+
+def box_row_center(content: str, width: int) -> str:
+    """Center content horizontally inside a box row."""
+    inner = width - 2
+    extra = inner - _disp_width(content)
+    if extra < 0:
+        extra = 0
+    left  = extra // 2
+    right = extra - left
+    return (
+        f"{C_BORDER}{V}{RESET}"
+        f"{' ' * left}{content}{' ' * right}"
         f"{C_BORDER}{V}{RESET}"
     )
 
@@ -299,6 +314,47 @@ def get_countdowns(countdowns: list) -> list[tuple[str, int]]:
             continue
     return results
 
+# ─── Big clock fonts ──────────────────────────────────────────────────────────
+
+# "large" — chunky block digits drawn with █ (5 rows tall).
+_BLOCK_FONT = {
+    "0": ["███", "█ █", "█ █", "█ █", "███"],
+    "1": ["  █", "  █", "  █", "  █", "  █"],
+    "2": ["███", "  █", "███", "█  ", "███"],
+    "3": ["███", "  █", "███", "  █", "███"],
+    "4": ["█ █", "█ █", "███", "  █", "  █"],
+    "5": ["███", "█  ", "███", "  █", "███"],
+    "6": ["███", "█  ", "███", "█ █", "███"],
+    "7": ["███", "  █", "  █", "  █", "  █"],
+    "8": ["███", "█ █", "███", "█ █", "███"],
+    "9": ["███", "█ █", "███", "  █", "███"],
+    ":": [" ", "█", " ", "█", " "],
+}
+
+# "ascii" — seven-segment style digital digits drawn with _ and | (3 rows tall).
+_ASCII_FONT = {
+    "0": [" _ ", "| |", "|_|"],
+    "1": ["   ", "  |", "  |"],
+    "2": [" _ ", " _|", "|_ "],
+    "3": [" _ ", " _|", " _|"],
+    "4": ["   ", "|_|", "  |"],
+    "5": [" _ ", "|_ ", " _|"],
+    "6": [" _ ", "|_ ", "|_|"],
+    "7": [" _ ", "  |", "  |"],
+    "8": [" _ ", "|_|", "|_|"],
+    "9": [" _ ", "|_|", " _|"],
+    ":": [" ", ".", "."],
+}
+
+def big_clock(time_str: str, style: str) -> list:
+    """Render HH:MM:SS as a list of equal-height text rows in the given style."""
+    font = _ASCII_FONT if style == "ascii" else _BLOCK_FONT
+    rows = len(next(iter(font.values())))
+    out  = []
+    for r in range(rows):
+        out.append("  ".join(font[ch][r] for ch in time_str if ch in font))
+    return out
+
 # ─── Renderer ─────────────────────────────────────────────────────────────────
 
 def countdown_bar(days: int, max_days: int = 365, width: int = 10) -> str:
@@ -353,16 +409,25 @@ def render(cfg: dict):
         cache_minutes = cfg.get("weather_cache_minutes", 30)
         weather_condition, weather_temp = get_weather_short(cfg["city"], cache_minutes)
 
+    clock_style = cfg.get("clock_style", "default")
+
     # ── build output lines ──
     lines = []
     lines.append(box_top(width))
 
-    # Row 1: Date  |  Clock
-    date_part  = f"{C_DATE}{BOLD}{date_str}{RESET}"
-    clock_part = f"{C_CLOCK}{BOLD}{clock}{RESET}  {C_LABEL}🕐{RESET}"
-    lines.append(box_row_two(date_part, clock_part, width))
-
-    lines.append(box_divider(width))
+    if clock_style in ("large", "ascii"):
+        # Centered date, then a big multi-line clock spanning its own rows.
+        lines.append(box_row_center(f"{C_DATE}{BOLD}{date_str}{RESET}", width))
+        lines.append(box_divider(width))
+        for cline in big_clock(clock, clock_style):
+            lines.append(box_row_center(f"{C_CLOCK}{BOLD}{cline}{RESET}", width))
+        lines.append(box_divider(width))
+    else:
+        # Row 1: Date  |  Clock
+        date_part  = f"{C_DATE}{BOLD}{date_str}{RESET}"
+        clock_part = f"{C_CLOCK}{BOLD}{clock}{RESET}  {C_LABEL}🕐{RESET}"
+        lines.append(box_row_two(date_part, clock_part, width))
+        lines.append(box_divider(width))
 
     # Row 2: Weather
     if cfg.get("show_weather") and cfg.get("city"):
@@ -435,6 +500,18 @@ def setup():
                 print("  ⚠️  Must be greater than 0 — keeping current value.")
         except ValueError:
             print("  ⚠️  Not a number — keeping current value.")
+
+    # Clock style
+    styles = {"1": "default", "2": "large", "3": "ascii"}
+    current_style = cfg.get("clock_style", "default")
+    print(f"\n  {C_LABEL}Clock style:{RESET} [1] default  [2] large (block)  [3] ascii (digital)")
+    style_in = input(f"  Choose [{current_style}]: ").strip()
+    if style_in in styles:
+        cfg["clock_style"] = styles[style_in]
+    elif style_in in styles.values():
+        cfg["clock_style"] = style_in
+    elif style_in:
+        print("  ⚠️  Unknown choice — keeping current value.")
 
     # Countdowns — snapshot the existing list as a copy so appends below don't
     # mutate it (and don't alias DEFAULT_CONFIG's list).

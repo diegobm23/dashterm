@@ -1,12 +1,12 @@
 # dashterm
 
-A lightweight terminal dashboard — displays clock, date, weather, countdowns, uptime, and user info every time you open a terminal.
+A lightweight terminal dashboard that displays clock, date, weather, countdowns, uptime, and user info every time you open a terminal.
 <img width="751" height="446" alt="dashterm-print" src="https://github.com/user-attachments/assets/7d71075a-331e-4820-9d3d-64dd945e3b6e" />
 
 ## Requirements
 
 - Python 3.9+ (uses standard-library generics like `tuple[...]`)
-- No third-party dependencies — pure Python standard library, nothing to `pip install`
+- No third-party dependencies, just pure Python standard library, nothing to `pip install`
 - A Unicode/emoji-capable terminal with 24-bit (truecolor) support, for correct icons and alignment
 - Internet connection (for weather — uses [wttr.in](https://wttr.in), no API key needed)
 
@@ -19,7 +19,7 @@ bash install.sh
 The installer will:
 1. Copy `dashterm` to `~/.local/bin/`
 2. Optionally add it to your `.bashrc` or `.zshrc`
-3. Run the setup wizard (city, weather refresh period & countdowns)
+3. Run the setup wizard (city, weather refresh period, clock style & countdowns)
 
 ## Manual install
 
@@ -33,10 +33,10 @@ dashterm --setup
 
 | Command | Description |
 |---|---|
-| `dashterm` | Static snapshot — instant render |
+| `dashterm` | Static snapshot, instant render |
 | `dashterm --live` | Live clock, updates every second |
-| `dashterm --setup` | Configure city & countdowns |
-| `dashterm --config` | Print the config file path & contents |
+| `dashterm --setup` | Configure city, countdowns and TTL for weather cache  |
+| `dashterm --config` | Print the config file path and contents |
 | `dashterm --version` | Show version |
 | `dashterm --help` | Show help |
 
@@ -58,6 +58,7 @@ Stored at `~/.config/dashterm/config.json`:
   "city": "São Paulo",
   "show_weather": true,
   "use_color": true,
+  "clock_style": "default",
   "weather_cache_minutes": 30,
   "countdowns": [
     { "label": "New Year",       "date": "2027-01-01" },
@@ -71,6 +72,7 @@ You can edit it directly or run `dashterm --setup` again.
 - `city` — location used for the weather lookup.
 - `show_weather` — set to `false` to hide the weather row entirely.
 - `use_color` — set to `false` for plain, ANSI-free output (useful for logs or color-less terminals).
+- `clock_style` — how the time is displayed: `default`, `large` or `ascii`.
 - `weather_cache_minutes` — how long a fetched forecast is reused before hitting the API again (default `30`). Weather is cached at `~/.config/dashterm/weather_cache.json`, so opening a new terminal won't re-fetch until the cache expires.
 - `countdowns` — list of `{ "label", "date" }` entries (date as `YYYY-MM-DD`), up to 5.
 
