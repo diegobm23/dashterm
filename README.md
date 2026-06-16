@@ -46,6 +46,7 @@ dashterm --setup
 | `dashterm` | Static snapshot — instant render |
 | `dashterm --live` | Live clock, updates every second |
 | `dashterm --setup` | Configure city & countdowns |
+| `dashterm --config` | Print the config file path & contents |
 | `dashterm --help` | Show help |
 
 ## Shell startup
@@ -65,6 +66,7 @@ Stored at `~/.config/dashterm/config.json`:
 {
   "city": "São Paulo",
   "show_weather": true,
+  "weather_cache_minutes": 30,
   "countdowns": [
     { "label": "New Year",       "date": "2027-01-01" },
     { "label": "Project Launch", "date": "2026-09-15" }
@@ -73,6 +75,8 @@ Stored at `~/.config/dashterm/config.json`:
 ```
 
 You can edit it directly or run `dashterm --setup` again.
+
+- `weather_cache_minutes` — how long a fetched forecast is reused before hitting the API again (default `30`). Weather is cached at `~/.config/dashterm/weather_cache.json`, so opening a new terminal won't re-fetch until the cache expires.
 
 ## Notes
 

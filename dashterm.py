@@ -5,6 +5,7 @@ Usage:
     dashterm            → static snapshot (for .bashrc / .zshrc)
     dashterm --live     → live updating clock (standalone mode)
     dashterm --setup    → interactive configuration wizard
+    dashterm --config   → print the config file path and contents
     dashterm --help     → show usage
 """
 
@@ -15,8 +16,10 @@ import socket
 import subprocess
 import datetime
 import time
+import copy
 import pathlib
 import shutil
+import unicodedata
 import urllib.request
 import urllib.error
 
@@ -24,12 +27,14 @@ import urllib.error
 
 CONFIG_DIR  = pathlib.Path.home() / ".config" / "dashterm"
 CONFIG_FILE = CONFIG_DIR / "config.json"
+CACHE_FILE  = CONFIG_DIR / "weather_cache.json"
 
 DEFAULT_CONFIG = {
     "city": "",
     "countdowns": [],
     "use_color": True,
     "show_weather": True,
+    "weather_cache_minutes": 30,
 }
 
 def load_config() -> dict:
@@ -37,18 +42,51 @@ def load_config() -> dict:
         try:
             with open(CONFIG_FILE) as f:
                 cfg = json.load(f)
-            # back-fill any missing keys from defaults
+            # back-fill any missing keys from defaults (deep-copied so we never
+            # alias the mutable lists/dicts inside DEFAULT_CONFIG)
             for k, v in DEFAULT_CONFIG.items():
-                cfg.setdefault(k, v)
+                cfg.setdefault(k, copy.deepcopy(v))
             return cfg
         except Exception:
             pass
-    return dict(DEFAULT_CONFIG)
+    return copy.deepcopy(DEFAULT_CONFIG)
 
 def save_config(cfg: dict):
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
+
+# ─── Weather cache ─────────────────────────────────────────────────────────────
+
+def load_weather_cache(city: str, max_age_minutes: float):
+    """Return cached (condition, temp) if fresh and for the same city, else None."""
+    if not CACHE_FILE.exists():
+        return None
+    try:
+        with open(CACHE_FILE) as f:
+            cache = json.load(f)
+    except Exception:
+        return None
+    if cache.get("city") != city:
+        return None
+    age = time.time() - cache.get("fetched_at", 0)
+    if age > max_age_minutes * 60:
+        return None
+    return cache.get("condition", ""), cache.get("temp", "")
+
+def save_weather_cache(city: str, condition: str, temp: str):
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "city": city,
+        "condition": condition,
+        "temp": temp,
+        "fetched_at": time.time(),
+    }
+    try:
+        with open(CACHE_FILE, "w") as f:
+            json.dump(payload, f, indent=2)
+    except Exception:
+        pass
 
 # ─── ANSI colour helpers ──────────────────────────────────────────────────────
 
@@ -91,8 +129,7 @@ def box_divider(width):
 
 def box_row(content: str, width: int, pad: int = 2) -> str:
     """Wrap content in a box row, stripping ANSI for length calculation."""
-    visible = _strip_ansi(content)
-    space   = width - 2 - (pad * 2) - len(visible)
+    space = width - 2 - (pad * 2) - _disp_width(content)
     if space < 0:
         space = 0
     return (
@@ -103,10 +140,8 @@ def box_row(content: str, width: int, pad: int = 2) -> str:
 
 def box_row_two(left: str, right: str, width: int, pad: int = 2) -> str:
     """Two-column row inside a box."""
-    lv = _strip_ansi(left)
-    rv = _strip_ansi(right)
     inner = width - 2 - pad * 2
-    gap   = inner - len(lv) - len(rv)
+    gap   = inner - _disp_width(left) - _disp_width(right)
     if gap < 1:
         gap = 1
     return (
@@ -118,6 +153,46 @@ def box_row_two(left: str, right: str, width: int, pad: int = 2) -> str:
 def _strip_ansi(s: str) -> str:
     import re
     return re.sub(r"\033\[[^m]*m", "", s)
+
+# Code points that render two columns wide but that `east_asian_width` reports
+# as Narrow/Ambiguous — emoji whose *default* presentation is text yet which
+# modern terminals still draw as full 2-col emoji.
+_WIDE_RANGES = (
+    (0x1100,  0x115F),    # Hangul Jamo
+    (0x1F000, 0x1FAFF),   # Emoji & pictographs  (👤 🕐 🌧 🌫 🌡 …)
+)
+_WIDE_CHARS = {
+    0x26C8,   # ⛈ thunder cloud (Ambiguous in EAW, but emoji-presented)
+}
+
+def _char_width(ch: str) -> int:
+    o = ord(ch)
+    # Zero-width: combining marks, ZWJ, and variation selectors (e.g. U+FE0F,
+    # handled as a look-ahead promoter in _disp_width).
+    if unicodedata.combining(ch) or ch == "‍" or 0xFE00 <= o <= 0xFE0F:
+        return 0
+    if unicodedata.east_asian_width(ch) in ("W", "F"):
+        return 2
+    if o in _WIDE_CHARS or any(lo <= o <= hi for lo, hi in _WIDE_RANGES):
+        return 2
+    return 1
+
+def _disp_width(s: str) -> int:
+    """Visible display width of a string, accounting for wide/zero-width chars."""
+    s = _strip_ansi(s)
+    total = 0
+    for i, ch in enumerate(s):
+        w = _char_width(ch)
+        # A trailing emoji variation selector (U+FE0F) promotes the preceding
+        # text-presentation symbol to a 2-column emoji (e.g. ☀️ ☁️ ❄️ ⚠️).
+        if w == 1 and i + 1 < len(s) and s[i + 1] == "️":
+            w = 2
+        total += w
+    return total
+
+def _pad_left(s: str, target: int) -> str:
+    """Prepend spaces so the visible width of `s` is at least `target`."""
+    return " " * max(0, target - _disp_width(s)) + s
 
 # ─── Data collectors ──────────────────────────────────────────────────────────
 
@@ -177,10 +252,19 @@ def get_weather(city: str) -> str:
     except Exception:
         return "unavailable"
 
-def get_weather_short(city: str) -> tuple[str, str]:
-    """Returns (condition, temp_string) or ('', '') on failure."""
+def get_weather_short(city: str, cache_minutes: float = 30) -> tuple[str, str]:
+    """Returns (condition, temp_string) or ('', '') on failure.
+
+    Results are cached in CACHE_FILE and reused for up to `cache_minutes`
+    to avoid hitting the API on every shell startup.
+    """
     if not city:
         return "", ""
+
+    cached = load_weather_cache(city, cache_minutes)
+    if cached is not None:
+        return cached
+
     try:
         import urllib.parse
         url = f"http://wttr.in/{urllib.parse.quote(city)}?format=%C|%t"
@@ -190,8 +274,13 @@ def get_weather_short(city: str) -> tuple[str, str]:
         parts = raw.split("|")
         condition = parts[0].strip() if parts else "?"
         temp      = parts[1].strip() if len(parts) > 1 else "?"
+        save_weather_cache(city, condition, temp)
         return condition, temp
     except Exception:
+        # On failure, fall back to any stale cache rather than showing nothing.
+        stale = load_weather_cache(city, float("inf"))
+        if stale is not None:
+            return stale
         return "unavailable", ""
 
 def get_countdowns(countdowns: list) -> list[tuple[str, int]]:
@@ -233,15 +322,18 @@ def days_label(days: int) -> str:
     return f"{C_VALUE}{days}{RESET}{C_LABEL} days{RESET}"
 
 def weather_icon(condition: str) -> str:
+    # Use plain emoji only — no U+FE0F variation selectors, which some
+    # terminals (e.g. VS Code's) render at an inconsistent width and break
+    # the box alignment.
     c = condition.lower()
-    if "sun"   in c or "clear" in c:  return "☀️ "
-    if "cloud" in c and "part" in c:  return "⛅ "
-    if "cloud" in c or "overcast" in c: return "☁️ "
-    if "rain"  in c or "drizzle" in c: return "🌧 "
-    if "storm" in c or "thunder" in c: return "⛈ "
-    if "snow"  in c:                  return "❄️ "
-    if "fog"   in c or "mist"  in c:  return "🌫 "
-    return "🌡 "
+    if "sun"   in c or "clear" in c:  return "🌞"
+    if "cloud" in c and "part" in c:  return "⛅"
+    if "cloud" in c or "overcast" in c: return "🌥"
+    if "rain"  in c or "drizzle" in c: return "🌧"
+    if "storm" in c or "thunder" in c: return "🌩"
+    if "snow"  in c:                  return "🌨"
+    if "fog"   in c or "mist"  in c:  return "🌫"
+    return "🌡"
 
 def render(cfg: dict):
     width = min(_term_width(), 72)
@@ -255,7 +347,8 @@ def render(cfg: dict):
 
     weather_condition, weather_temp = "", ""
     if cfg.get("show_weather") and cfg.get("city"):
-        weather_condition, weather_temp = get_weather_short(cfg["city"])
+        cache_minutes = cfg.get("weather_cache_minutes", 30)
+        weather_condition, weather_temp = get_weather_short(cfg["city"], cache_minutes)
 
     # ── build output lines ──
     lines = []
@@ -274,7 +367,7 @@ def render(cfg: dict):
         if weather_condition and weather_condition != "unavailable":
             icon = weather_icon(weather_condition)
             weather_line = (
-                f"{icon} {C_WEATHER}{BOLD}{city_name}{RESET}  "
+                f"{icon}  {C_WEATHER}{BOLD}{city_name}{RESET}  "
                 f"{C_VALUE}{weather_temp}{RESET}  "
                 f"{C_LABEL}{weather_condition}{RESET}"
             )
@@ -287,11 +380,14 @@ def render(cfg: dict):
 
     # Rows 3+: Countdowns
     if countdowns:
-        for label, days in countdowns:
-            bar   = countdown_bar(days, width=12)
-            dlbl  = days_label(days)
+        # Render bar + label for each, then right-align the labels to a common
+        # width so the bars line up regardless of how many digits each has.
+        rows    = [(label, countdown_bar(days, width=12), days_label(days))
+                   for label, days in countdowns]
+        dlbl_w  = max(_disp_width(dlbl) for _, _, dlbl in rows)
+        for label, bar, dlbl in rows:
             left  = f"{C_CDOWN}⏳{RESET}  {C_VALUE}{label}{RESET}"
-            right = f"{bar}  {dlbl}"
+            right = f"{bar}  {_pad_left(dlbl, dlbl_w)}"
             lines.append(box_row_two(left, right, width))
         lines.append(box_divider(width))
 
@@ -319,8 +415,25 @@ def setup():
     elif not current_city:
         cfg["show_weather"] = False
 
-    # Countdowns
-    existing = cfg.get("countdowns", [])
+    # Weather cache period
+    current_period = cfg.get("weather_cache_minutes", 30)
+    period_in = input(
+        f"  Weather refresh period in minutes [{current_period}]: "
+    ).strip()
+    if period_in:
+        try:
+            period = float(period_in)
+            if period > 0:
+                cfg["weather_cache_minutes"] = period
+            else:
+                print("  ⚠️  Must be greater than 0 — keeping current value.")
+        except ValueError:
+            print("  ⚠️  Not a number — keeping current value.")
+
+    # Countdowns — snapshot the existing list as a copy so appends below don't
+    # mutate it (and don't alias DEFAULT_CONFIG's list).
+    existing = list(cfg.get("countdowns", []))
+    cfg["countdowns"] = list(existing)
     print(f"\n  {C_LABEL}Current countdowns:{RESET}")
     if existing:
         for i, c in enumerate(existing, 1):
@@ -344,13 +457,19 @@ def setup():
         cfg["countdowns"].append({"label": label, "date": date_str})
         print(f"  {C_ACCENT}✓ Added{RESET}\n")
 
-    # Remove old countdowns?
-    if existing and len(cfg["countdowns"]) > len(existing):
-        pass  # already added, keep existing
-    elif existing:
-        ans = input(f"\n  Clear existing countdowns and keep only new ones? [y/N]: ").strip().lower()
+    added = len(cfg["countdowns"]) - len(existing)
+
+    # If there were already countdowns AND new ones were added, ask whether to
+    # keep the old ones alongside the new ones.
+    if existing and added:
+        ans = input("  Keep the previous countdowns too? [Y/n]: ").strip().lower()
+        if ans == "n":
+            cfg["countdowns"] = cfg["countdowns"][len(existing):]  # keep only the new ones
+    # If there were countdowns but none were added, offer to clear them all.
+    elif existing and not added:
+        ans = input("  Clear all existing countdowns? [y/N]: ").strip().lower()
         if ans == "y":
-            cfg["countdowns"] = cfg["countdowns"][len(existing):]
+            cfg["countdowns"] = []
 
     save_config(cfg)
     print(f"\n  {C_ACCENT}✓ Config saved to {CONFIG_FILE}{RESET}")
@@ -361,6 +480,21 @@ def setup():
     if ans != "n":
         print()
         render(cfg)
+
+# ─── Show config ──────────────────────────────────────────────────────────────
+
+def show_config():
+    """Print the config file path and its contents."""
+    print(f"\n  {C_LABEL}Config file:{RESET} {C_VALUE}{CONFIG_FILE}{RESET}\n")
+    if not CONFIG_FILE.exists():
+        print(f"  {C_DIM}(not created yet — run {C_VALUE}dashterm --setup{RESET}{C_DIM}){RESET}\n")
+        return
+    try:
+        with open(CONFIG_FILE) as f:
+            print(f.read().rstrip())
+    except Exception as e:
+        print(f"  {C_WARN}⚠️  Could not read config: {e}{RESET}")
+    print()
 
 # ─── Live mode ────────────────────────────────────────────────────────────────
 
@@ -387,6 +521,10 @@ def main():
 
     if "--setup" in args:
         setup()
+        return
+
+    if "--config" in args:
+        show_config()
         return
 
     cfg = load_config()
