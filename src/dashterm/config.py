@@ -8,7 +8,7 @@ CONFIG_DIR  = pathlib.Path.home() / ".config" / "dashterm"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 # Panels shown (top-to-bottom) when the config doesn't specify an order.
-DEFAULT_PANELS = ["clock", "weather", "countdowns", "system", "user"]
+DEFAULT_PANELS = ["greeting", "clock", "weather", "countdowns", "system", "user"]
 
 DEFAULT_CONFIG = {
     "city": "",
@@ -17,6 +17,8 @@ DEFAULT_CONFIG = {
     "show_weather": True,
     "weather_cache_minutes": 30,
     "clock_style": "default",   # "default" | "large" | "ascii"
+    "time_format": "24h",        # "24h" | "12h"
+    "temp_unit": "C",            # "C" | "F"
     "theme": "default",          # see dashterm.theme.THEMES
     "panels": list(DEFAULT_PANELS),
 }

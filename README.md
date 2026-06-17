@@ -19,7 +19,7 @@ bash install.sh
 The installer will:
 1. Build a single-file executable and copy it to `~/.local/bin/dashterm`
 2. Optionally add it to your `.bashrc` or `.zshrc`
-3. Run the setup wizard (city, weather refresh period, clock style, theme, panels & countdowns)
+3. Run the setup wizard (city, units, weather refresh period, clock style, time format, theme, panels & countdowns)
 
 `dashterm` is bundled into one self-contained executable with the standard-library
 [`zipapp`](https://docs.python.org/3/library/zipapp.html) module — it runs anywhere
@@ -40,7 +40,7 @@ dashterm --setup
 |---|---|
 | `dashterm` | Static snapshot, instant render |
 | `dashterm --live` | Live clock, updates every second |
-| `dashterm --setup` | Configure city, weather cache, clock style, theme, panels and countdowns |
+| `dashterm --setup` | Configure city, units, weather cache, clock style, time format, theme, panels and countdowns |
 | `dashterm --config` | Print the config file path and contents |
 | `dashterm --version` | Show version |
 | `dashterm --help` | Show help |
@@ -64,8 +64,10 @@ Stored at `~/.config/dashterm/config.json`:
   "show_weather": true,
   "use_color": true,
   "clock_style": "default",
+  "time_format": "24h",
+  "temp_unit": "C",
   "theme": "default",
-  "panels": ["clock", "weather", "countdowns", "system", "user"],
+  "panels": ["greeting", "clock", "weather", "countdowns", "system", "user"],
   "weather_cache_minutes": 30,
   "countdowns": [
     { "label": "New Year",       "date": "2027-01-01" },
@@ -80,8 +82,10 @@ You can edit it directly or run `dashterm --setup` again.
 - `show_weather` — set to `false` to hide the weather row entirely.
 - `use_color` — set to `false` for plain, ANSI-free output (useful for logs or color-less terminals).
 - `clock_style` — how the time is displayed: `default`, `large` or `ascii`.
+- `time_format` — `24h` or `12h` (12-hour mode shows AM/PM).
+- `temp_unit` — `C` (metric) or `F` (Fahrenheit) for the weather temperature.
 - `theme` — color palette: `default`, `mono`, `nord` or `solarized`.
-- `panels` — which sections to show and in what order. Available: `clock`, `weather`, `countdowns`, `system`, `user`. Remove an entry to hide it, or reorder the list to rearrange the dashboard.
+- `panels` — which sections to show and in what order. Available: `greeting`, `clock`, `weather`, `countdowns`, `system`, `user`. Remove an entry to hide it, or reorder the list to rearrange the dashboard.
 - `weather_cache_minutes` — how long a fetched forecast is reused before hitting the API again (default `30`). Weather is cached at `~/.config/dashterm/weather_cache.json`, so opening a new terminal won't re-fetch until the cache expires.
 - `countdowns` — list of `{ "label", "date" }` entries (date as `YYYY-MM-DD`), up to 5.
 
@@ -91,6 +95,7 @@ The dashboard is composed of panels, rendered top-to-bottom in the order listed 
 
 | Panel | Shows |
 |---|---|
+| `greeting` | A time-of-day greeting (e.g. "Good morning, you") |
 | `clock` | Date and time (compact, or a large/ascii clock per `clock_style`) |
 | `weather` | Current conditions for `city` (when `show_weather` is on) |
 | `countdowns` | Progress bars and days remaining for each countdown |

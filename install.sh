@@ -9,9 +9,9 @@ INSTALL_DIR="$HOME/.local/bin"
 TARGET="$INSTALL_DIR/dashterm"
 
 echo ""
-echo "  ╭─────────────────────────────╮"
-echo "  │   dashterm  installer       │"
-echo "  ╰─────────────────────────────╯"
+echo "  ╭─────────────────────────────────╮"
+echo "  │       dashterm  installer       │"
+echo "  ╰─────────────────────────────────╯"
 echo ""
 
 # Build the single-file executable (pure stdlib zipapp — no pip needed)

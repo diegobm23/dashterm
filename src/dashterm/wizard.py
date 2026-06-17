@@ -34,6 +34,14 @@ def setup():
         except ValueError:
             print("  ⚠️  Not a number — keeping current value.")
 
+    # Temperature unit
+    current_unit = cfg.get("temp_unit", "C")
+    unit_in = input(f"  Temperature unit [C/F] [{current_unit}]: ").strip().lower()
+    if unit_in in ("c", "f"):
+        cfg["temp_unit"] = unit_in.upper()
+    elif unit_in:
+        print("  ⚠️  Enter C or F — keeping current value.")
+
     # Clock style
     styles = {"1": "default", "2": "large", "3": "ascii"}
     current_style = cfg.get("clock_style", "default")
@@ -46,6 +54,16 @@ def setup():
     elif style_in:
         print("  ⚠️  Unknown choice — keeping current value.")
 
+    # Time format
+    current_tf = cfg.get("time_format", "24h")
+    tf_in = input(f"  Time format [12h/24h] [{current_tf}]: ").strip().lower()
+    if tf_in in ("12h", "12"):
+        cfg["time_format"] = "12h"
+    elif tf_in in ("24h", "24"):
+        cfg["time_format"] = "24h"
+    elif tf_in:
+        print("  ⚠️  Enter 12h or 24h — keeping current value.")
+
     # Theme
     theme_names  = sorted(THEMES)
     current_theme = cfg.get("theme", "default")
@@ -56,8 +74,21 @@ def setup():
     elif theme_in:
         print("  ⚠️  Unknown theme — keeping current value.")
 
-    # System stats panel toggle
+    # Panel toggles
     panels = list(cfg.get("panels") or DEFAULT_PANELS)
+
+    # Greeting line toggle (shown at the top)
+    has_greeting = "greeting" in panels
+    greet_in = input(
+        f"  Show greeting line? [{'Y/n' if has_greeting else 'y/N'}]: "
+    ).strip().lower()
+    want_greeting = has_greeting if not greet_in else greet_in == "y"
+    if want_greeting and not has_greeting:
+        panels.insert(0, "greeting")
+    elif not want_greeting and has_greeting:
+        panels = [p for p in panels if p != "greeting"]
+
+    # System stats panel toggle
     has_system = "system" in panels
     sys_in = input(
         f"  Show system stats panel (load/disk/battery)? [{'Y/n' if has_system else 'y/N'}]: "

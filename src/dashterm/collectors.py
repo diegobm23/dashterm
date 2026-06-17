@@ -12,13 +12,24 @@ import urllib.request
 
 from .cache import load_weather_cache, save_weather_cache
 
-def get_clock() -> str:
+def get_clock(time_format: str = "24h") -> str:
+    """HH:MM:SS digits (12-hour, no AM/PM, when time_format == '12h')."""
     now = datetime.datetime.now()
-    return now.strftime("%H:%M:%S")
+    return now.strftime("%I:%M:%S" if time_format == "12h" else "%H:%M:%S")
+
+def get_meridiem() -> str:
+    """'AM' or 'PM' for the current time."""
+    return datetime.datetime.now().strftime("%p")
+
+def get_hour() -> int:
+    return datetime.datetime.now().hour
 
 def get_date() -> str:
     now = datetime.datetime.now()
     return now.strftime("%A, %B %d, %Y")
+
+def get_username() -> str:
+    return os.environ.get("USER") or os.environ.get("LOGNAME") or "there"
 
 def get_uptime() -> str:
     try:
@@ -114,32 +125,34 @@ def get_weather(city: str) -> str:
     except Exception:
         return "unavailable"
 
-def get_weather_short(city: str, cache_minutes: float = 30) -> tuple[str, str]:
+def get_weather_short(city: str, cache_minutes: float = 30, unit: str = "C") -> tuple[str, str]:
     """Returns (condition, temp_string) or ('', '') on failure.
 
-    Results are cached and reused for up to `cache_minutes` to avoid hitting the
-    API on every shell startup.
+    `unit` is "C" (metric) or "F" (USCS); it controls the wttr.in units and is
+    part of the cache key. Results are cached and reused for up to
+    `cache_minutes` to avoid hitting the API on every shell startup.
     """
     if not city:
         return "", ""
 
-    cached = load_weather_cache(city, cache_minutes)
+    cached = load_weather_cache(city, cache_minutes, unit)
     if cached is not None:
         return cached
 
     try:
-        url = f"http://wttr.in/{urllib.parse.quote(city)}?format=%C|%t"
+        flag = "u" if unit == "F" else "m"   # wttr.in: u=USCS/°F, m=metric/°C
+        url = f"http://wttr.in/{urllib.parse.quote(city)}?format=%C|%t&{flag}"
         req = urllib.request.Request(url, headers={"User-Agent": "curl/7.68"})
         with urllib.request.urlopen(req, timeout=3) as resp:
             raw = resp.read().decode().strip()
         parts = raw.split("|")
         condition = parts[0].strip() if parts else "?"
         temp      = parts[1].strip() if len(parts) > 1 else "?"
-        save_weather_cache(city, condition, temp)
+        save_weather_cache(city, condition, temp, unit)
         return condition, temp
     except Exception:
         # On failure, fall back to any stale cache rather than showing nothing.
-        stale = load_weather_cache(city, float("inf"))
+        stale = load_weather_cache(city, float("inf"), unit)
         if stale is not None:
             return stale
         return "unavailable", ""
