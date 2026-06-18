@@ -18,7 +18,7 @@ bash install.sh
 
 The installer will:
 1. Build a single-file executable and copy it to `~/.local/bin/dashterm`
-2. Optionally add it to your `.bashrc` or `.zshrc`
+2. Optionally add it to your `.bashrc`, `.zshrc`, or `config.fish`
 3. Run the setup wizard (city, units, weather refresh period, clock style, time format, theme, panels & countdowns)
 
 `dashterm` is bundled into one self-contained executable with the standard-library
@@ -47,11 +47,24 @@ dashterm --setup
 
 ## Shell startup
 
-Add to your `~/.bashrc` or `~/.zshrc`:
+**bash / zsh** — add to `~/.bashrc` or `~/.zshrc`:
 
 ```bash
 # dashterm — terminal dashboard
 dashterm
+```
+
+**fish** — add to `~/.config/fish/config.fish`:
+
+```fish
+# dashterm — terminal dashboard
+dashterm
+```
+
+Make sure `~/.local/bin` is on your PATH. For fish, add this once:
+
+```fish
+fish_add_path $HOME/.local/bin
 ```
 
 ## Config
@@ -154,7 +167,7 @@ rm -f ~/.local/bin/dashterm
 rm -rf ~/.config/dashterm
 ```
 
-Also delete the `dashterm` startup line from your `~/.bashrc` or `~/.zshrc` if you added one.
+Also delete the `dashterm` startup line from your `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish` if you added one.
 
 ## License
 
