@@ -11,7 +11,7 @@ A lightweight terminal dashboard that displays clock, date, weather, countdowns,
 - Internet connection (for weather — uses [wttr.in](https://wttr.in), no API key needed)
 
 ## Install
-
+Clone this repository and runs:
 ```bash
 bash install.sh
 ```
@@ -22,7 +22,7 @@ The installer will:
 3. Run the setup wizard (city, units, weather refresh period, clock style, time format, theme, panels & countdowns)
 
 `dashterm` is bundled into one self-contained executable with the standard-library
-[`zipapp`](https://docs.python.org/3/library/zipapp.html) module — it runs anywhere
+[`zipapp`](https://docs.python.org/3/library/zipapp.html) module. It runs anywhere
 `python3` is available, with nothing to `pip install`.
 
 ## Manual install
@@ -140,9 +140,9 @@ src/dashterm/
 
 ## Notes
 
-- Weather uses [wttr.in](https://wttr.in) — no account or API key required
-- Uptime and the `system` panel (load average, disk, battery) work on Linux and macOS; on platforms where a stat isn't available it's simply omitted
-- Colors use 24-bit ANSI — works in any modern terminal emulator
+- Weather uses [wttr.in](https://wttr.in). No account or API key required.
+- Uptime and the `system` panel (load average, disk, battery) work on Linux and macOS; on platforms where a stat isn't available it's simply omitted.
+- Colors use 24-bit ANSI — works in any modern terminal emulator.
 
 ## Uninstall
 
