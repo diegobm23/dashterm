@@ -30,17 +30,18 @@ echo ""
 _needs_path_fix=0
 if ! echo "$PATH" | grep -qF "$INSTALL_DIR"; then
     _needs_path_fix=1
-    _suggested_rc="$HOME/.zshrc"
-    [[ "$SHELL" == */bash ]] && _suggested_rc="$HOME/.bashrc"
-    [[ "$SHELL" == */fish ]] && _suggested_rc="$HOME/.config/fish/config.fish"
+    case "$SHELL" in
+        */bash) _suggested_rc="$HOME/.bashrc" ;;
+        */fish) _suggested_rc="$HOME/.config/fish/config.fish" ;;
+        *)      _suggested_rc="$HOME/.zshrc" ;;
+    esac
     echo "  ⚠️  $INSTALL_DIR is not on your PATH."
     echo "     Add this to your $_suggested_rc:"
     echo ""
-    if [[ "$SHELL" == */fish ]]; then
-        echo '     fish_add_path $HOME/.local/bin'
-    else
-        echo '     export PATH="$HOME/.local/bin:$PATH"'
-    fi
+    case "$SHELL" in
+        */fish) echo '     fish_add_path $HOME/.local/bin' ;;
+        *)      echo '     export PATH="$HOME/.local/bin:$PATH"' ;;
+    esac
     echo ""
 fi
 
@@ -95,7 +96,7 @@ echo "  ────────────────────────
 echo "  Run setup now to configure city & countdowns?"
 echo ""
 read -r -p "  [Y/n]: " run_setup
-if [[ "$run_setup" != "n" && "$run_setup" != "N" ]]; then
+if [ "$run_setup" != "n" ] && [ "$run_setup" != "N" ]; then
     echo ""
     "$TARGET" --setup
 else
