@@ -54,7 +54,7 @@ read -r -p "  Shell: [1] bash  [2] zsh  [3] fish  [4] skip: " choice
 add_hook() {
     local rcfile="$1"
     local hook='# dashterm — terminal dashboard'$'\n''dashterm'
-    if (( _needs_path_fix )) && ! grep -qF "$INSTALL_DIR" "$rcfile" 2>/dev/null; then
+    if [ "$_needs_path_fix" -eq 1 ] && ! grep -qF "$INSTALL_DIR" "$rcfile" 2>/dev/null; then
         echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rcfile"
         echo "  ✓ Added $INSTALL_DIR to PATH in $rcfile"
     fi
@@ -70,7 +70,7 @@ add_hook() {
 add_hook_fish() {
     local rcfile="$HOME/.config/fish/config.fish"
     mkdir -p "$(dirname "$rcfile")"
-    if (( _needs_path_fix )) && ! grep -qF "$INSTALL_DIR" "$rcfile" 2>/dev/null; then
+    if [ "$_needs_path_fix" -eq 1 ] && ! grep -qF "$INSTALL_DIR" "$rcfile" 2>/dev/null; then
         echo 'fish_add_path $HOME/.local/bin' >> "$rcfile"
         echo "  ✓ Added $INSTALL_DIR to PATH in $rcfile"
     fi
